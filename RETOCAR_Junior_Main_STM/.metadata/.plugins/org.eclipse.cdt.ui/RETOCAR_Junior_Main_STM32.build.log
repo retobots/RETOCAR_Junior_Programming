@@ -1,0 +1,23 @@
+15:49:36 **** Incremental Build of configuration Debug for project RETOCAR_Junior_Main_STM32 ****
+make -j12 all 
+arm-none-eabi-g++ "../Core/Src/main.cpp" -mcpu=cortex-m3 -std=gnu++14 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F103xB -c -I../Core/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I../Drivers/STM32F1xx_HAL_Driver/Inc -I../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I../Drivers/CMSIS/Include -I"D:/Project/RETOCAR_Junior/RETOCAR_Junior_Main_STM/RETOCAR_Junior_Main_STM32/Core/lib/drivers/communication" -I"D:/Project/RETOCAR_Junior/RETOCAR_Junior_Main_STM/RETOCAR_Junior_Main_STM32/Core/lib/drivers/hardware_drivers" -O0 -ffunction-sections -fdata-sections -fno-exceptions -fno-rtti -fno-use-cxa-atexit -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/main.d" -MT"Core/Src/main.o" --specs=nano.specs -mfloat-abi=soft -mthumb -o "Core/Src/main.o"
+arm-none-eabi-g++ -o "RETOCAR_Junior_Main_STM32.elf" @"objects.list"   -mcpu=cortex-m3 -T"D:\Project\RETOCAR_Junior\RETOCAR_Junior_Main_STM\RETOCAR_Junior_Main_STM32\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="RETOCAR_Junior_Main_STM32.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -lstdc++ -lsupc++ -Wl,--end-group
+Finished building target: RETOCAR_Junior_Main_STM32.elf
+ 
+arm-none-eabi-size  RETOCAR_Junior_Main_STM32.elf 
+arm-none-eabi-objdump -h -S RETOCAR_Junior_Main_STM32.elf  > "RETOCAR_Junior_Main_STM32.list"
+arm-none-eabi-objcopy  -O ihex RETOCAR_Junior_Main_STM32.elf  "RETOCAR_Junior_Main_STM32.hex"
+   text	   data	    bss	    dec	    hex	filename
+   3716	     12	   1572	   5300	   14b4	RETOCAR_Junior_Main_STM32.elf
+arm-none-eabi-objcopy  -O binary RETOCAR_Junior_Main_STM32.elf  "RETOCAR_Junior_Main_STM32.bin"
+Finished building: default.size.stdout
+ 
+Finished building: RETOCAR_Junior_Main_STM32.list
+ 
+Finished building: RETOCAR_Junior_Main_STM32.bin
+Finished building: RETOCAR_Junior_Main_STM32.hex
+ 
+ 
+
+15:49:37 Build Finished. 0 errors, 0 warnings. (took 639ms)
+

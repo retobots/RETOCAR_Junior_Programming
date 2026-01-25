@@ -1,0 +1,19 @@
+/*
+ * motor.h
+ *
+ *  Created on: Jan 25, 2026
+ *      Author: retobots
+ */
+
+#ifndef LIB_DRIVERS_HARDWARE_DRIVERS_MOTOR_H_
+#define LIB_DRIVERS_HARDWARE_DRIVERS_MOTOR_H_
+
+class Motor{
+    public:
+        void test();
+    private:
+
+};
+
+
+#endif /* LIB_DRIVERS_HARDWARE_DRIVERS_MOTOR_H_ */
