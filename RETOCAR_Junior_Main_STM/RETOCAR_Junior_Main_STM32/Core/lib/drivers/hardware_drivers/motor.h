@@ -10,7 +10,7 @@
 
 class Motor{
     public:
-        void test();
+       
     private:
 
 };

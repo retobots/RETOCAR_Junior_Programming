@@ -7,6 +7,4 @@
 
 #include "motor.h"
 
-void Motor::test(){
-    //test motor
-}
+
