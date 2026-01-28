@@ -739,3 +739,10 @@
 2026-01-25 15:23:11,446 [INFO] ApiDb:452 - User favorites MCUs=[]
 2026-01-25 15:23:11,450 [INFO] ApiDb:448 - Save user favorites file C:\Users\retobots/.stm32cubeide/favorites.boards.txt: 0 item(s)
 2026-01-25 15:23:11,450 [INFO] ApiDb:452 - User favorites Boards=[]
+2026-01-25 16:54:42,827 [INFO] WebAppUi:294 - Path where cad_preferences.json is located C:\Users\retobots/.stm32cubeide/
+2026-01-25 16:54:42,828 [INFO] WebAppUi:295 - Updating consent from JSON file
+2026-01-25 16:54:43,064 [INFO] WebApp:403 - JxBrowser engine has been closed 
+2026-01-25 16:54:43,064 [INFO] WebAppUi:493 - JxBrowser engine has been closed 
+2026-01-25 16:54:43,065 [INFO] WebAppUi:530 - Close the Jxbrowser engine manually
+2026-01-25 16:54:43,981 [ERROR] LogOutputStream:75 - [STDERR_REDIRECT] 
+2026-01-25 16:54:43,982 [ERROR] LogOutputStream:75 - [STDERR_REDIRECT] 
