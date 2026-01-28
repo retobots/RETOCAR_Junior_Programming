@@ -1,0 +1,7 @@
+struct ControlPacket{
+
+};
+
+struct TelemetryPacket{
+
+};
