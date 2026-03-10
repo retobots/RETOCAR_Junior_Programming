@@ -9,85 +9,115 @@
 TaskHandle_t TaskInputHandle = NULL;
 TaskHandle_t TaskRadioHandle = NULL;
 TaskHandle_t TaskUIHandle = NULL;
+TaskHandle_t TaskUISyncHandle = NULL;
 
 // --- Khai báo tài nguyên dùng chung ---
-ControlPacket currentControl;      // Dữ liệu điều khiển hiện tại
-TelemetryPacket latestTelemetry;   // Dữ liệu xe gửi về mới nhất
-SemaphoreHandle_t xMutexData;      // Bảo vệ dữ liệu dùng chung
+ControlPacket currentControl;    // Dữ liệu điều khiển gửi đi
+TelemetryPacket latestTelemetry; // Dữ liệu xe gửi về
+SemaphoreHandle_t xMutexData;    // Bảo vệ dữ liệu dùng chung giữa các Core
 
 // --- Nguyên mẫu các Task ---
-void TaskInput(void *pvParameters);
-void TaskRadio(void *pvParameters);
-void TaskUI(void *pvParameters);
+void TaskInput(void *pvParameters);  // Core 1: Đọc ADC, xử lý toán học
+void TaskRadio(void *pvParameters);  // Core 0: Giao tiếp không dây
+void TaskUI(void *pvParameters);     // Core 0: Duy trì LVGL Tick
+void TaskUISync(void *pvParameters); // Core 0: Cập nhật Telemetry lên màn hình
 
-void setup() {
+void setup()
+{
     Serial.begin(115200);
 
     // 1. Khởi tạo tài nguyên hệ thống
     xMutexData = xSemaphoreCreateMutex();
-    
+
     // 2. Khởi tạo phần cứng (Drivers)
-    // Khởi tạo TFT + LovyanGFX bằng đối tượng display_driver
-    // Khởi tạo ADC cho cần điều khiển bằng đối tượng joystick_driver
-    // Khởi tạo thư viện LVGL bằng đối tượng ui_manager
-    
+    // Các đối tượng này đã được cấu hình chân theo Schematic V2 (D23, D22, D18, D16, D4...)
+    // display_driver.begin();
+    // joystick_driver.begin(); // Cấu hình ADC1 cho VP, VN, D34, D35
+    // ui_manager.begin();      // Khởi tạo LVGL và các widget Dashboard, Tuning
+
     // 3. Khởi tạo dịch vụ truyền thông
-    // Cấu hình ESP-NOW bằng đối tượng esp_now_service
+    // esp_now_service.begin();
 
-    // 4. Khởi tạo giao diện (UI)
-    // Vẽ màn hình chính bằng đối tượng ui_manager
+    // 4. Tạo các Task chạy song song
+    // Task Input: Ưu tiên cao nhất, chạy trên Core 1 để tránh trễ lệnh lái
+    xTaskCreatePinnedToCore(TaskInput, "TaskInput", 4096, NULL, 5, &TaskInputHandle, 1);
 
-    // 5. Tạo các tác vụ FreeRTOS (Tối ưu cho ESP32-C3 đơn nhân)
-    xTaskCreate(TaskInput, "InputTask", 2048, NULL, 4, &TaskInputHandle);
-    xTaskCreate(TaskRadio, "RadioTask", 3072, NULL, 3, &TaskRadioHandle);
-    xTaskCreate(TaskUI,    "UITask",    4096, NULL, 2, &TaskUIHandle);
+    // Các tác vụ truyền thông và đồ họa chạy trên Core 0
+    xTaskCreatePinnedToCore(TaskRadio, "TaskRadio", 4096, NULL, 4, &TaskRadioHandle, 0);
+    xTaskCreatePinnedToCore(TaskUI, "TaskUI", 8192, NULL, 3, &TaskUIHandle, 0);
+    xTaskCreatePinnedToCore(TaskUISync, "TaskUISync", 4096, NULL, 2, &TaskUISyncHandle, 0);
 }
 
-void loop() {
-    // Để trống vì đã sử dụng FreeRTOS Tasks
+void loop()
+{
+    // FreeRTOS quản lý các Task, loop() không cần thực hiện gì
     vTaskDelete(NULL);
 }
 
 // --- CHI TIẾT CÁC TÁC VỤ ---
 
-// Tác vụ 1: Đọc Joystick & Nút nhấn (Chu kỳ 20ms)
-void TaskInput(void *pvParameters) {
+// Tác vụ 1: Xử lý Input (Core 1 - 20ms)
+void TaskInput(void *pvParameters)
+{
     TickType_t xLastWakeTime = xTaskGetTickCount();
-    while (1) {
-        if (xSemaphoreTake(xMutexData, portMAX_DELAY)) {
-            // Đọc và xử lý toán học (Deadzone, Exponential Mapping) và lưu vào currentControl
+    while (1)
+    {
+        // Đọc giá trị thô từ Joystick
+        // RawInput raw = joystick_driver.read();
+
+        if (xSemaphoreTake(xMutexData, portMAX_DELAY))
+        {
+            // Áp dụng Deadzone 5% và Exponential Mapping (Hàm bậc 3 cho xoay)
+            // currentControl.vx = joystick_driver.applyDeadzone(raw.vx);
+            // currentControl.vy = joystick_driver.applyDeadzone(raw.vy);
+            // currentControl.omega = joystick_driver.applyExpo(raw.omega, 3.0);
+
             xSemaphoreGive(xMutexData);
         }
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(20));
     }
 }
 
-// Tác vụ 2: Truyền thông ESP-NOW (Chu kỳ 30ms)
-void TaskRadio(void *pvParameters) {
+// Tác vụ 2: Truyền thông ESP-NOW (Core 0 - 30ms)
+void TaskRadio(void *pvParameters)
+{
     TickType_t xLastWakeTime = xTaskGetTickCount();
-    while (1) {
-        if (xSemaphoreTake(xMutexData, portMAX_DELAY)) {
-            // Gửi dữ liệu lệnh điều khiển từ currentControl sang xe sử dụng đối tượng esp_now_service
-            
-            // Cập nhật dữ liệu Telemetry nhận được từ Callback thuộc esp_now_service vào latestTelemetry
+    while (1)
+    {
+        if (xSemaphoreTake(xMutexData, pdMS_TO_TICKS(10)))
+        {
+            // Gửi dữ liệu điều khiển sang xe
+            // esp_now_service.send(currentControl);
+
+            // Cập nhật Telemetry từ xe vào latestTelemetry qua callback
+            // latestTelemetry = esp_now_service.getLatestTelemetry();
             xSemaphoreGive(xMutexData);
         }
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(30));
     }
 }
 
-// Tác vụ 3: Cập nhật Giao diện LVGL (Chu kỳ 5ms - 50ms)
-void TaskUI(void *pvParameters) {
-    while (1) {
-        // Cập nhật bộ đệm LVGL (Bắt buộc chạy liên tục) sử dụng ui_manager
-        
-        // Cập nhật số liệu trên màn hình mỗi 100ms để tránh lag
-        static uint32_t lastUpdate = 0;
-        if (millis() - lastUpdate > 100) {
-            // đọc latestTelemetry và gọi hàm cập nhật màn hình thuộc đối tượng ui_manager
-            lastUpdate = millis();
-        }
-        
+// Tác vụ 3: Duy trì LVGL (Core 0 - 5ms)
+void TaskUI(void *pvParameters)
+{
+    while (1)
+    {
+        // lv_timer_handler(); // Bắt buộc chạy liên tục để duy trì hoạt ảnh
         vTaskDelay(pdMS_TO_TICKS(5));
+    }
+}
+
+// Tác vụ 4: Đồng bộ dữ liệu lên Dashboard (Core 0 - 100ms)
+void TaskUISync(void *pvParameters)
+{
+    while (1)
+    {
+        if (xSemaphoreTake(xMutexData, portMAX_DELAY))
+        {
+            // Cập nhật các Widget: Pin, Tọa độ X-Y, Góc hướng, Khoảng cách siêu âm
+            // ui_manager.updateDashboard(latestTelemetry);
+            xSemaphoreGive(xMutexData);
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
