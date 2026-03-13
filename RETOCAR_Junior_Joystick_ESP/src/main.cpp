@@ -60,20 +60,38 @@ void loop()
 void TaskInput(void *pvParameters)
 {
     TickType_t xLastWakeTime = xTaskGetTickCount();
+    ControlPacket raw;
     while (1)
     {
-        // Đọc giá trị thô từ Joystick
-        // RawInput raw = joystick_driver.read();
+        /* đọc joystick */
+        joystick_read(&raw);
 
         if (xSemaphoreTake(xMutexData, portMAX_DELAY))
         {
-            // Áp dụng Deadzone 5% và Exponential Mapping (Hàm bậc 3 cho xoay)
-            // currentControl.vx = joystick_driver.applyDeadzone(raw.vx);
-            // currentControl.vy = joystick_driver.applyDeadzone(raw.vy);
-            // currentControl.omega = joystick_driver.applyExpo(raw.omega, 3.0);
+            /* DEADZONE */
+            int vx = applyDeadzone(raw.vx, 70);
+            int vy = applyDeadzone(raw.vy, 70);
+            int omega = applyDeadzone(raw.omega, 90);
+
+            /* NORMALIZE */
+            vx = normalizeAxis(vx);
+            vy = normalizeAxis(vy);
+            omega = normalizeAxis(omega);
+
+            /* EXPO cho trục xoay */
+            float w = (float)omega / 100.0f;
+            w = applyExpo(w, 0.3f);
+
+            /* ghi vào control packet */
+            currentControl.vx = vx;
+            currentControl.vy = vy;
+            currentControl.omega = (int)(w * 100);
+
+            currentControl.mode = raw.mode;
 
             xSemaphoreGive(xMutexData);
         }
+
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(20));
     }
 }
