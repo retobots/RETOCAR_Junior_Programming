@@ -1,115 +1,96 @@
 #include "joystick_driver.h"
-#include <Arduino.h>
 
-/* =============================
-   CENTER VALUE (after calibration)
-============================= */
-static int center_vx = 2048;
-static int center_vy = 2048;
-static int center_omega = 2048;
-
-
-/* =============================
-   INIT
-============================= */
-void joystick_init()
+JoyStick_Data::JoyStick_Data(int x, int y, int omega, int btn, int dz)
 {
-    pinMode(BTN_1, INPUT_PULLUP);
+    pinX = x;
+    pinY = y;
+    pinOmega = omega;
+    pinBtn = btn;
 
-    joystick_calibrate();
+    deadzone = dz;
 }
 
-
-/* =============================
-   CALIBRATION
-============================= */
-void joystick_calibrate()
+void JoyStick_Data::begin()
 {
-    long sum_vx = 0;
-    long sum_vy = 0;
-    long sum_omega = 0;
-
-    const int samples = 200;
-
-    for(int i = 0; i < samples; i++)
-    {
-        sum_vx += analogRead(PIN_vx);
-        sum_vy += analogRead(PIN_vy);
-        sum_omega += analogRead(PIN_omega);
-
-        delay(5);
-    }
-
-    center_vx = sum_vx / samples;
-    center_vy = sum_vy / samples;
-    center_omega = sum_omega / samples;
+    pinMode(pinBtn, INPUT_PULLUP);
 }
 
-
-/* =============================
-   READ ADC WITH FILTER
-============================= */
-int readADC(int pin)
+void JoyStick_Data::calibrate()
 {
-    long sum = 0;
+    delay(200);
+    centerX = analogRead(pinX);
+    centerY = analogRead(pinY);
+    centerOmega = analogRead(pinOmega);
+}
+
+int JoyStick_Data::readADC(int pin)
+{
+    int sum = 0;
 
     for(int i = 0; i < 5; i++)
     {
         sum += analogRead(pin);
-        delayMicroseconds(200);
     }
-
+    
     return sum / 5;
 }
 
-
-/* =============================
-   READ JOYSTICK RAW DATA
-============================= */
-void joystick_read(ControlPacket *Data)
+int JoyStick_Data::applyDeadzone(int value, int center)
 {
-    int raw_vx = readADC(PIN_vx);
-    int raw_vy = readADC(PIN_vy);
-    int raw_omega = readADC(PIN_omega);
+    if (abs(value - center) < deadzone)
+        return center;
 
-    /* trừ center */
-    Data->vx = raw_vx - center_vx;
-    Data->vy = raw_vy - center_vy;
-    Data->omega = raw_omega - center_omega;
-
-    /* button mode */
-    Data->mode = !digitalRead(BTN_1);
+    return value;
 }
 
-
-/* =============================
-   DEADZONE
-============================= */
-int applyDeadzone(int value, int dz)
+int JoyStick_Data::normalize(int value, int center)
 {
-    if(abs(value) < dz)
-        return 0;
-}
-    if(value > 0){
-        return value - dz;
-    }else{
-        return value + dz;
+    int range = 2047;
+
+    int output = (value - center) * 100 / range;
+
+    if (output > 100) output = 100;
+    if (output < -100) output = -100;
+
+    return output;
 }
 
-
-/* =============================
-   NORMALIZE
-============================= */
-int normalizeAxis(int value)
+int JoyStick_Data::expo(int value)
 {
-    return map(value, -2048, 2048, -100, 100);
+    float x = value / 100.0f;
+    float y = x * x * x;
+
+    return (int)(y * 100);
 }
 
-
-/* =============================
-   EXPONENTIAL CURVE
-============================= */
-float applyExpo(float x, float expo)
+int JoyStick_Data::getX()
 {
-    return expo * x * x * x + (1 - expo) * x;
+    int val = readADC(pinX);
+    val = applyDeadzone(val, centerX);
+    val = normalize(val, centerX);
+    val = expo(val);
+    return val;
+}
+
+int JoyStick_Data::getY()
+{
+    int val = readADC(pinY);
+    val = applyDeadzone(val, centerY);
+    val = normalize(val, centerY);
+    val = expo(val);
+    return val;
+}
+
+int JoyStick_Data::getOmega()
+{
+    int val = readADC(pinOmega);
+    val = applyDeadzone(val, centerOmega);
+    val = normalize(val, centerOmega);
+    val = expo(val);
+    return val;
+}
+
+bool JoyStick_Data::getButton()
+{
+    return !digitalRead(pinBtn);
 }

@@ -15,7 +15,7 @@ TaskHandle_t TaskUISyncHandle = NULL;
 ControlPacket currentControl;    // Dữ liệu điều khiển gửi đi
 TelemetryPacket latestTelemetry; // Dữ liệu xe gửi về
 SemaphoreHandle_t xMutexData;    // Bảo vệ dữ liệu dùng chung giữa các Core
-
+JoyStick_Data joy(PIN_X, PIN_Y, PIN_OMEGA, PIN_BTN);
 // --- Nguyên mẫu các Task ---
 void TaskInput(void *pvParameters);  // Core 1: Đọc ADC, xử lý toán học
 void TaskRadio(void *pvParameters);  // Core 0: Giao tiếp không dây
@@ -32,7 +32,8 @@ void setup()
     // 2. Khởi tạo phần cứng (Drivers)
     // Các đối tượng này đã được cấu hình chân theo Schematic V2 (D23, D22, D18, D16, D4...)
     // display_driver.begin();
-    // joystick_driver.begin(); // Cấu hình ADC1 cho VP, VN, D34, D35
+    joy.begin(); // Cấu hình ADC1 cho VP, VN, D34, D35
+    joy.calibrate();
     // ui_manager.begin();      // Khởi tạo LVGL và các widget Dashboard, Tuning
 
     // 3. Khởi tạo dịch vụ truyền thông
@@ -57,37 +58,26 @@ void loop()
 // --- CHI TIẾT CÁC TÁC VỤ ---
 
 // Tác vụ 1: Xử lý Input (Core 1 - 20ms)
+    
 void TaskInput(void *pvParameters)
 {
     TickType_t xLastWakeTime = xTaskGetTickCount();
-    ControlPacket raw;
+
     while (1)
     {
         /* đọc joystick */
-        joystick_read(&raw);
+        int vx = joy.getX();
+        int vy = joy.getY();
+        int omega = joy.getOmega();
+        bool btn = joy.getButton();
 
         if (xSemaphoreTake(xMutexData, portMAX_DELAY))
         {
-            /* DEADZONE */
-            int vx = applyDeadzone(raw.vx, 70);
-            int vy = applyDeadzone(raw.vy, 70);
-            int omega = applyDeadzone(raw.omega, 90);
-
-            /* NORMALIZE */
-            vx = normalizeAxis(vx);
-            vy = normalizeAxis(vy);
-            omega = normalizeAxis(omega);
-
-            /* EXPO cho trục xoay */
-            float w = (float)omega / 100.0f;
-            w = applyExpo(w, 0.3f);
-
-            /* ghi vào control packet */
             currentControl.vx = vx;
             currentControl.vy = vy;
-            currentControl.omega = (int)(w * 100);
+            currentControl.omega = omega;
 
-            currentControl.mode = raw.mode;
+            currentControl.mode = btn;
 
             xSemaphoreGive(xMutexData);
         }
