@@ -21,18 +21,12 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "robot_slave.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-typedef enum
-{
-  STATE_INIT,
-  STATE_IDLE,
-  STATE_RUNNING,
-  STATE_SAFETY_STOP,
-  STATE_ERROR
-} SystemState_t;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -48,7 +42,13 @@ typedef enum
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+// Khai báo các handle ngoại vi từ HAL (do CubeMX tạo ra)
+// extern TIM_HandleTypeDef htim1, htim2, htim3, htim4;
+// extern UART_HandleTypeDef huart2;
+// extern ADC_HandleTypeDef hadc1;
 
+// Khởi tạo đối tượng Robot chính
+// RobotSlave robot;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -71,7 +71,6 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  SystemState_t currentState = STATE_INIT;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -93,7 +92,8 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
-
+  // Khởi tạo Robot Slave
+  // robot.init(&huart2, &hadc1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -101,35 +101,9 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-    switch (currentState)
-    {
-    case STATE_INIT:
-      // your code
-      currentState = STATE_IDLE;
-      break;
-
-    case STATE_IDLE:
-      // your code
-      currentState = STATE_RUNNING;
-      break;
-
-    case STATE_RUNNING:
-      // if(your code)
-      currentState = STATE_SAFETY_STOP;
-      // if(your code)
-      currentState = STATE_IDLE;
-      break;
-
-    case STATE_SAFETY_STOP:
-      // your code
-      currentState = STATE_IDLE;
-      break;
-
-    case STATE_ERROR:
-      // your code
-      break;
-      /* USER CODE BEGIN 3 */
-    }
+    // Cập nhật toàn bộ hệ thống (State Machine, Sensors, Comms)
+    // robot.update();
+    /* USER CODE BEGIN 3 */
     /* USER CODE END 3 */
   }
 }
