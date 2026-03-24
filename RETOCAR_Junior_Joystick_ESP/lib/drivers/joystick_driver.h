@@ -6,34 +6,19 @@
 #define PIN_BTN 34
 #define PIN_OMEGA 35
 
-class JoyStick_Data
+class JoyStick_Driver
 {
 private:
-    int pinX;
-    int pinY;
-    int pinOmega;
-    int pinBtn;
-
-    int centerX;
-    int centerY;
-    int centerOmega;
-
-    int deadzone;
-
-    int readADC(int pin);
-    int applyDeadzone(int value, int center);
-    int normalize(int value, int center);
-    int expo(int value);
+    int pinX, pinY, pinOmega;
+    bool Mode;
 
 public:
-    JoyStick_Data(int x, int y, int omega, int btn, int dz = 100);
+    JoyStick_Data(int x, int y, int omega, bool Mode);
 
-    void begin();
-    void calibrate();
+    void initialize();  // Khởi tạo chân
 
-    int getX();
-    int getY();
-    int getOmega();
-
-    bool getButton();
+    int ReadX();   // Trục X
+    int ReadY();   // Trục Y
+    int ReadOmega();  // Trục Omega (xoay)
+    bool isButtonPressed();  // Kiểm tra trạng thái nút nhấn
 };

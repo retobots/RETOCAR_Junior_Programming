@@ -15,7 +15,7 @@ TaskHandle_t TaskUISyncHandle = NULL;
 ControlPacket currentControl;    // Dữ liệu điều khiển gửi đi
 TelemetryPacket latestTelemetry; // Dữ liệu xe gửi về
 SemaphoreHandle_t xMutexData;    // Bảo vệ dữ liệu dùng chung giữa các Core
-JoyStick_Data joy(PIN_X, PIN_Y, PIN_OMEGA, PIN_BTN);
+
 // --- Nguyên mẫu các Task ---
 void TaskInput(void *pvParameters);  // Core 1: Đọc ADC, xử lý toán học
 void TaskRadio(void *pvParameters);  // Core 0: Giao tiếp không dây
@@ -32,8 +32,7 @@ void setup()
     // 2. Khởi tạo phần cứng (Drivers)
     // Các đối tượng này đã được cấu hình chân theo Schematic V2 (D23, D22, D18, D16, D4...)
     // display_driver.begin();
-    joy.begin(); // Cấu hình ADC1 cho VP, VN, D34, D35
-    joy.calibrate();
+    // joystick_driver.begin(); // Cấu hình ADC1 cho VP, VN, D34, D35
     // ui_manager.begin();      // Khởi tạo LVGL và các widget Dashboard, Tuning
 
     // 3. Khởi tạo dịch vụ truyền thông
@@ -58,31 +57,41 @@ void loop()
 // --- CHI TIẾT CÁC TÁC VỤ ---
 
 // Tác vụ 1: Xử lý Input (Core 1 - 20ms)
-    
 void TaskInput(void *pvParameters)
 {
     TickType_t xLastWakeTime = xTaskGetTickCount();
-
+    ControlPacket raw;
     while (1)
     {
-        /* đọc joystick */
-        int vx = joy.getX();
-        int vy = joy.getY();
-        int omega = joy.getOmega();
-        bool btn = joy.getButton();
-
+        /* đọc joystick thông qua Control_Data_Service */
+        joystick_read(&raw); 
         if (xSemaphoreTake(xMutexData, portMAX_DELAY))
         {
+            /* DEADZONE */
+            int vx = applyDeadzone(raw.vx, 100);
+            int vy = applyDeadzone(raw.vy, 100);
+            int omega = applyDeadzone(raw.omega, 100);
+
+            /* NORMALIZE */
+            vx = normalizeAxis(vx);
+            vy = normalizeAxis(vy);
+            omega = normalizeAxis(omega);
+
+            /* EXPO cho trục xoay */
+            float w = (float)omega / 100.0f;
+            w = applyExpo(w, 0.3f);
+
+            /* Ghi vào control packet */
             currentControl.vx = vx;
             currentControl.vy = vy;
-            currentControl.omega = omega;
+            currentControl.omega = (int)(w * 100);
 
-            currentControl.mode = btn;
-
+            currentControl.mode = raw.mode;  // Kiểm tra mode (nút nhấn)
+            
             xSemaphoreGive(xMutexData);
         }
 
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(20));
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(20));  // Đọc mỗi 20ms
     }
 }
 

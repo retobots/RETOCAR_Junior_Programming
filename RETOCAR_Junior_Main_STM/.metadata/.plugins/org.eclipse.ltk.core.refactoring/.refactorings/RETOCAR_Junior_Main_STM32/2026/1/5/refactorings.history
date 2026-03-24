@@ -1,3 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<session version="1.0">&#x0A;<refactoring comment="Rename resource &apos;RETOCAR_Junior_Main_STM32/Core/lib/driver&apos; to &apos;drivers&apos;" description="Rename resource &apos;driver&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="Core/lib/driver" name="drivers" stamp="1769329123534" updateReferences="true"/>&#x0A;<refactoring comment="Rename resource &apos;RETOCAR_Junior_Main_STM32/Core/Src/main.c&apos; to &apos;main.cpp&apos;" description="Rename resource &apos;main.c&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="Core/Src/main.c" name="main.cpp" stamp="1769330276254" updateReferences="true"/>
-</session>
