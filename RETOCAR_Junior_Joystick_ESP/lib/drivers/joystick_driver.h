@@ -1,24 +1,28 @@
+#ifndef JOYSTICK_DRIVER_H
+#define JOYSTICK_DRIVER_H
+
 #pragma once
 #include <Arduino.h>
 
-#define PIN_X 39
-#define PIN_Y 36
-#define PIN_BTN 34
-#define PIN_OMEGA 35
+#define PIN_X 34
+#define PIN_Y 35
+#define PIN_BTN 13
+#define PIN_OMEGA 39
 
 class JoyStick_Driver
 {
 private:
-    int pinX, pinY, pinOmega;
-    bool Mode;
+    int m_pinX, m_pinY, m_pinOmega, m_pinBtn;
 
 public:
-    JoyStick_Data(int x, int y, int omega, bool Mode);
+    JoyStick_Driver(int x, int y, int omega, int pinBtn);
 
-    void initialize();  // Khởi tạo chân
+    void begin();  // Khởi tạo chân
 
-    int ReadX();   // Trục X
-    int ReadY();   // Trục Y
-    int ReadOmega();  // Trục Omega (xoay)
+    int readX();   // Đọc X
+    int readY();   // Đọc Y
+    int readOmega();  // Đọc Omega (xoay)
     bool isButtonPressed();  // Kiểm tra trạng thái nút nhấn
 };
+
+#endif

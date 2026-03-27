@@ -1,33 +1,30 @@
 #include "joystick_driver.h"
 
-JoyStick_Driver::JoyStick_Driver(int x, int y, int omega, bool mode) {
-    pinX = x;
-    pinY = y;
-    pinOmega = omega;
-    Mode = mode;
+JoyStick_Driver::JoyStick_Driver(int x, int y, int omega, int mode) {
+    m_pinX = x;
+    m_pinY = y;
+    m_pinOmega = omega;
+    m_pinBtn = mode;
 }
 
 //Cấu hình cho button
-void JoyStick_Driver::initialize() {
-    pinMode(Mode, INPUT_PULLUP);  // Nút nhấn
+void JoyStick_Driver::begin() {
+    pinMode(m_pinBtn, INPUT_PULLUP); // Nút nhấn
 }
 
-//Đọc giá trị trục X
+// Đọc giá trị trục X
 int JoyStick_Driver::readX() {
-    return analogRead(pinX);  // Đọc giá trị từ trục X
+    return analogRead(m_pinX);  
 }
 
-//Đọc giá trị Y
+// Đọc giá trị trục Y
 int JoyStick_Driver::readY() {
-    return analogRead(pinY);  // Đọc giá trị từ trục Y
-}
-
-//Đọc giá trị tốc độ quay
-int JoyStick_Driver::readOmega() {
-    return analogRead(pinOmega);  // Đọc giá trị từ trục Omega (Xoay)
+    return analogRead(m_pinY);  
 }
 
 //Kiểm tra trạng thái nút nhấn
 bool JoyStick_Driver::isButtonPressed() {
-    return !digitalRead(Mode);  // Kiểm tra trạng thái nút nhấn
+    if (PIN_BTN == -1) return false;
+
+    return digitalRead(m_pinBtn) == LOW;
 }

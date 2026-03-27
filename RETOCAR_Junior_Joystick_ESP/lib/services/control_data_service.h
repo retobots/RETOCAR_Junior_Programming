@@ -1,19 +1,43 @@
-#pragma once
+#ifndef CONTROL_DATA_SERVICE_H
+#define CONTROL_DATA_SERVICE_H
+
 #include "joystick_driver.h"
 #include "data_structs.h"
 
-class Control_Data_Service {
+class ControlDataService {
 private:
-    JoyStick_Driver joystick1;
-    JoyStick_Driver joystick2;
+    JoyStick_Driver& m_joy1; // 
+    JoyStick_Driver& m_joy2;
 
+    int m_centerX;
+    int m_centerY;
+    int m_centerOmega;
+
+    // tạo Buffer cho các giá trị
+    int m_bufX[5] = {0};
+    int m_bufY[5] = {0};
+    int m_bufOmega[5] = {0};
+    int m_idxX = 0;
+    int m_idxY = 0;
+    int m_idxOmega = 0;
+
+    uint8_t m_currentMode = 0;          // Lưu mode hiện tại của xe 
+    bool m_lastButtonState = false;     // Kiểm tra nút có bị đè hay không
+    unsigned long m_lastPressTime = 0;
+
+    // Các hàm xử lý nội bộ 
+    int CalculateAverage(int newValue, int* buffer, int& index);
+    int applyDeadzone(int value, int center);
+    float CalculateSpeed(int value, int center, float v_max);
+    float applyExpo(float mappedValue, float v_max);
 public:
-    Control_Data_Service(JoyStick_Driver j1, JoyStick_Driver j2);
+    // Constructor
+    ControlDataService(JoyStick_Driver& joy1, JoyStick_Driver& joy2);
 
-    void initialize();  // Khởi tạo các joystick
-    void calibrateJoystick();  // Hiệu chuẩn joystick
-    ControlPacket getControlData();  // Lấy dữ liệu điều khiển
-    int applyDeadzone(int value, int center);  // Áp dụng deadzone
-    int normalize(int value, int center);  // Chuẩn hóa giá trị
-    int expo(int value);  // Áp dụng expo cho vận tốc xoay
+    void begin();
+    void calibrateCenter();
+    
+    ControlPacket ControlData(); 
 };
+
+#endif

@@ -4,6 +4,7 @@
 #include "joystick_driver.h"
 #include "esp_now_service.h"
 #include "ui_manager.h"
+#include "control_data_service.h"
 
 // --- Khai báo Task Handles ---
 TaskHandle_t TaskInputHandle = NULL;
@@ -22,9 +23,18 @@ void TaskRadio(void *pvParameters);  // Core 0: Giao tiếp không dây
 void TaskUI(void *pvParameters);     // Core 0: Duy trì LVGL Tick
 void TaskUISync(void *pvParameters); // Core 0: Cập nhật Telemetry lên màn hình
 
+//Khởi tạo đối tượng joystick
+JoyStick_Driver joy1(PIN_X, PIN_Y, -1, PIN_BTN);
+JoyStick_Driver joy2(-1, PIN_OMEGA, -1, -1); 
+
+ControlDataService controlService(joy1, joy2);
+
+
 void setup()
 {
     Serial.begin(115200);
+    controlService.begin();
+    controlService.calibrateCenter();
 
     // 1. Khởi tạo tài nguyên hệ thống
     xMutexData = xSemaphoreCreateMutex();
@@ -32,7 +42,6 @@ void setup()
     // 2. Khởi tạo phần cứng (Drivers)
     // Các đối tượng này đã được cấu hình chân theo Schematic V2 (D23, D22, D18, D16, D4...)
     // display_driver.begin();
-    // joystick_driver.begin(); // Cấu hình ADC1 cho VP, VN, D34, D35
     // ui_manager.begin();      // Khởi tạo LVGL và các widget Dashboard, Tuning
 
     // 3. Khởi tạo dịch vụ truyền thông
@@ -51,7 +60,7 @@ void setup()
 void loop()
 {
     // FreeRTOS quản lý các Task, loop() không cần thực hiện gì
-    vTaskDelete(NULL);
+    vTaskDelete(NULL); 
 }
 
 // --- CHI TIẾT CÁC TÁC VỤ ---
@@ -60,34 +69,13 @@ void loop()
 void TaskInput(void *pvParameters)
 {
     TickType_t xLastWakeTime = xTaskGetTickCount();
-    ControlPacket raw;
+    
     while (1)
     {
-        /* đọc joystick thông qua Control_Data_Service */
-        joystick_read(&raw); 
-        if (xSemaphoreTake(xMutexData, portMAX_DELAY))
-        {
-            /* DEADZONE */
-            int vx = applyDeadzone(raw.vx, 100);
-            int vy = applyDeadzone(raw.vy, 100);
-            int omega = applyDeadzone(raw.omega, 100);
-
-            /* NORMALIZE */
-            vx = normalizeAxis(vx);
-            vy = normalizeAxis(vy);
-            omega = normalizeAxis(omega);
-
-            /* EXPO cho trục xoay */
-            float w = (float)omega / 100.0f;
-            w = applyExpo(w, 0.3f);
-
-            /* Ghi vào control packet */
-            currentControl.vx = vx;
-            currentControl.vy = vy;
-            currentControl.omega = (int)(w * 100);
-
-            currentControl.mode = raw.mode;  // Kiểm tra mode (nút nhấn)
+        ControlPacket newPacket = controlService.ControlData();
             
+        if (xSemaphoreTake(xMutexData, pdMS_TO_TICKS(5)) == pdTRUE) {
+            currentControl = newPacket;
             xSemaphoreGive(xMutexData);
         }
 

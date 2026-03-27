@@ -1,62 +1,117 @@
 #include "control_data_service.h"
+#include <Arduino.h>
 
-//Khởi tạo các đối tượng 
-Control_Data_Service::Control_Data_Service(JoyStick_Driver j1, JoyStick_Driver j2)
-    : joystick1(j1), joystick2(j2) {}
+//Set tốc độ tối đa
+const float v_max = 10.0f;
 
-//Khởi tạo chân button
-void Control_Data_Service::initialize() {
-    joystick1.initialize();
+
+ControlDataService::ControlDataService(JoyStick_Driver& joy1, JoyStick_Driver& joy2)
+    : m_joy1(joy1), m_joy2(joy2) {}
+
+//Cấu hình button
+void ControlDataService::begin() {
+    m_joy1.begin(); 
+    m_joy2.begin();
 }
 
-//Lấy dữ liệu tĩnh của joystick để hiệu chuẩn
-void Control_Data_Service::calibrateJoystick() {
-    vTaskDelay(pdMS_TO_TICKS(200));  
-    centerX = joystick1.readX();
-    centerY = joystick1.readY();
-    centerOmega = joystick2.readY();
+//Lấy giá trị trung tâm
+void ControlDataService::calibrateCenter() {
+    delay(200); // Đợi hệ thống ổn định
+    m_centerX = m_joy1.readX();
+    m_centerY = m_joy1.readY();
+    m_centerOmega = m_joy2.readY(); 
 }
 
-//đặt vùng chết cho joystick
-int Control_Data_Service::applyDeadzone(int value, int center) {
-    int deadzone = 100;
-    if (abs(value - center) < deadzone)
+//Tính giá trị trung bình (lọc nhiễu tín hiệu)
+int ControlDataService::CalculateAverage(int newValue, int* buffer, int& index) {
+    buffer[index] = newValue;
+    index = (index + 1) % 5;
+    int sum = 0;
+    for (int i = 0; i < 5; i++) {
+        sum += buffer[i];
+    }
+    return sum / 5;
+}
+
+//Set Deadzone
+int ControlDataService::applyDeadzone(int value, int center) {
+    const int DEADZONE_WIDTH = 100;
+    if (abs(value - center) < DEADZONE_WIDTH) {
         return center;
+    }
     return value;
 }
 
-//chuẩn hóa giá trị về [-100, 100]
-int Control_Data_Service::normalize(int value, int center) {
-    int range = 2047;
-    int output = (value - center) * 100 / range;
-    if (output > 100) output = 100;
-    if (output < -100) output = -100;
+//Tính vận tốc truyền xuống xe
+float ControlDataService::CalculateSpeed(int value, int center, float v_max) {
+    const float ADC_max = 4095.0f; 
+    const float ADC_min = 0.0f;
+
+    if (value == center) return 0.0f;
+
+    float output = 0.0f;
+    if (value > center){
+        output = (float)(value - center) * v_max / (ADC_max - (float)center);
+    } else {
+        output = (float)(value - center) * v_max / ((float)center - ADC_min);
+    }
+
+    if (output > v_max) return v_max;
+    if (output < -v_max) return -v_max;
     return output;
 }
 
-//làm mượt chuyển động quay cho omega (cubic exponentiation X^3)
-int Control_Data_Service::expo(int value) {
-    float x = value / 100.0f; // Chuyển giá trị thành dạng float và chuẩn hóa lại với 100
-    float y = x * x * x;  // Áp dụng phép mũ bậc 3 để làm mượt chuyển động
-    return (int)(y * 100); // Trả về giá trị expo và chuyển về kiểu int
+//Làm mượt chuyển động quay ( cubic equation )
+float ControlDataService::applyExpo(float mappedValue, float v_max) {
+    float x = mappedValue / v_max;
+    float y = 0.5f * x * x * x + 0.5f * x; // Hàm bậc 3: a*x^3 + (1-a)*x
+    return y*v_max;
 }
 
 
-ControlPacket Control_Data_Service::getControlData() {
+
+ControlPacket ControlDataService::ControlData() {
     ControlPacket packet;
 
-    // Lấy giá trị từ các trục của joystick1 và joystick2
-    int vx = joystick1.readX();  // Trục X của joystick1
-    int vy = joystick1.readY();  // Trục Y của joystick1
-    int omega = joystick2.readY();  // Trục Y của joystick2 (omega)
+    //Đọc giá trị joystick
+    int X = m_joy1.readX();
+    int Y = m_joy1.readY();
+    int Omega = m_joy2.readY(); 
 
-    // Áp dụng deadzone, normalize và expo 
-    packet.vx = normalize(applyDeadzone(vx, 100), 0);
-    packet.vy = normalize(applyDeadzone(vy, 100), 0);
-    packet.omega = expo(normalize(applyDeadzone(omega, 100), 0));
+    //Lọc nhiễu 
+    int m_X = CalculateAverage(X, m_bufX, m_idxX);
+    int m_Y = CalculateAverage(Y, m_bufY, m_idxY);
+    int m_Omega = CalculateAverage(Omega, m_bufOmega, m_idxOmega);
 
-    // Nút nhấn của joystick1
-    packet.mode = joystick1.isButtonPressed();  
+    //Xử lý Vùng chết (Deadzone)
+    int dzX = applyDeadzone(m_X, m_centerX);
+    int dzY = applyDeadzone(m_Y, m_centerY);
+    int dzOmega = applyDeadzone(m_Omega, m_centerOmega);
+
+    //Chuẩn hóa về [-100, 100]
+    float normX = CalculateSpeed(dzX, m_centerX, v_max);
+    float normY = CalculateSpeed(dzY, m_centerY, v_max);
+    float normOmega = CalculateSpeed(dzOmega, m_centerOmega, v_max);
+
+    normX = -normX;
+
+    //Áp dụng Expo 
+    float finalOmega = applyExpo(normOmega, v_max);
+
+    //Đóng gói dữ liệu
+    packet.vx = round(normX * 100.0f) / 100.0f;
+    packet.vy = round(normY * 100.0f) / 100.0f;
+    packet.omega = round(finalOmega * 100.0f) / 100.0f;
+    
+    bool isPressed = m_joy1.isButtonPressed();
+
+    if (isPressed && !m_lastButtonState && (millis() - m_lastPressTime > 200)) {
+        m_currentMode++;
+        if (m_currentMode > 2) m_currentMode = 0; 
+        m_lastPressTime = millis();
+    }
+    m_lastButtonState = isPressed; // Lưu lại trạng thái tay cho vòng lặp sau
+    packet.mode = m_currentMode;
 
     return packet;
 }
