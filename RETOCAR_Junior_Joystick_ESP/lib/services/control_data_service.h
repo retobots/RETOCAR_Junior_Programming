@@ -37,7 +37,7 @@ public:
     void begin();
     void calibrateCenter();
     
-    ControlPacket ControlData(); 
+    void updateControlData(ControlPacket* packet); 
 };
 
 #endif

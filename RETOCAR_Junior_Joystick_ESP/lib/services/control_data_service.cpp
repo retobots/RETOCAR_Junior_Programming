@@ -70,9 +70,7 @@ float ControlDataService::applyExpo(float mappedValue, float v_max) {
 
 
 
-ControlPacket ControlDataService::ControlData() {
-    ControlPacket packet;
-
+void ControlDataService::updateControlData(ControlPacket* packet) {
     //Đọc giá trị joystick
     int X = m_joy1.readX();
     int Y = m_joy1.readY();
@@ -99,9 +97,9 @@ ControlPacket ControlDataService::ControlData() {
     float finalOmega = applyExpo(normOmega, v_max);
 
     //Đóng gói dữ liệu
-    packet.vx = round(normX * 100.0f) / 100.0f;
-    packet.vy = round(normY * 100.0f) / 100.0f;
-    packet.omega = round(finalOmega * 100.0f) / 100.0f;
+    packet->vx = round(normX * 100.0f) / 100.0f;
+    packet->vy = round(normY * 100.0f) / 100.0f;
+    packet->omega = round(finalOmega * 100.0f) / 100.0f;
     
     bool isPressed = m_joy1.isButtonPressed();
 
@@ -111,7 +109,5 @@ ControlPacket ControlDataService::ControlData() {
         m_lastPressTime = millis();
     }
     m_lastButtonState = isPressed; // Lưu lại trạng thái tay cho vòng lặp sau
-    packet.mode = m_currentMode;
-
-    return packet;
+    packet->mode = m_currentMode;
 }

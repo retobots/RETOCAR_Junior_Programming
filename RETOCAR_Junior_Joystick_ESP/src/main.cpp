@@ -42,7 +42,7 @@ void setup()
     // 2. Khởi tạo phần cứng (Drivers)
     // Các đối tượng này đã được cấu hình chân theo Schematic V2 (D23, D22, D18, D16, D4...)
     // display_driver.begin();
-    // ui_manager.begin();      // Khởi tạo LVGL và các widget Dashboard, Tuning
+    // Khởi tạo LVGL và các widget Dashboard, Tuning
 
     // 3. Khởi tạo dịch vụ truyền thông
     // esp_now_service.begin();
@@ -60,22 +60,22 @@ void setup()
 void loop()
 {
     // FreeRTOS quản lý các Task, loop() không cần thực hiện gì
-    vTaskDelete(NULL); 
+    vTaskDelete(NULL);
 }
 
 // --- CHI TIẾT CÁC TÁC VỤ ---
 
 // Tác vụ 1: Xử lý Input (Core 1 - 20ms)
+
 void TaskInput(void *pvParameters)
 {
     TickType_t xLastWakeTime = xTaskGetTickCount();
     
     while (1)
     {
-        ControlPacket newPacket = controlService.ControlData();
             
         if (xSemaphoreTake(xMutexData, pdMS_TO_TICKS(5)) == pdTRUE) {
-            currentControl = newPacket;
+            controlService.updateControlData(&currentControl);
             xSemaphoreGive(xMutexData);
         }
 
