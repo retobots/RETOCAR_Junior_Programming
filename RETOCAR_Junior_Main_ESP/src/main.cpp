@@ -6,6 +6,15 @@
 #include "RadioService.h"
 #include "Navigator.h"
 
+#include "IMUDriver.h"
+#include "UltrasonicDriver.h"
+
+IMUDriver imu;
+UltrasonicDriver ultrasonic;
+
+RobotState g_robotState;
+RobotCommand g_robotCmd;
+
 // --- Task Handles ---
 TaskHandle_t hControlTask, hCommSlaveTask, hRadioTask, hSystemTask;
 SemaphoreHandle_t xMutexData;
@@ -26,6 +35,15 @@ void setup()
   // slaveComm.begin();
   // radioService.begin();
   // navigator.init();
+
+  if (imu.begin()) {
+    Serial.println("MPU6050 initialized successfully!");
+  } else {
+    Serial.println("Failed to initialize MPU6050!");
+  }
+
+  ultrasonic.begin();
+  Serial.println("Ultrasonic initialized.");
 
   // --- PHÂN BỔ 4 TASKS THEO THIẾT KẾ ---
 
@@ -54,13 +72,32 @@ void Task_Control(void *pv)
   TickType_t xLastWakeTime = xTaskGetTickCount();
   while (1)
   {
+    // Kích hoạt siêu âm bắn xung
+    ultrasonic.trigger();
+
+    // Đọc dữ liệu từ driver
+    float pitch, roll, yaw;
+    imu.readPRY(pitch, roll, yaw);
+    float dist = ultrasonic.getDistanceCm();
+
     if (xSemaphoreTake(xMutexData, portMAX_DELAY))
     {
+
+      g_robotState.distance = dist;
+      g_robotState.heading = yaw;
+      
       // Lấy Feedback đã được Task_Comm_Slave cập nhật sẵn
       // navigator.update(g_robotState);
       // // Tính toán PID & Xuất PWM
       // navigator.execute(g_robotCmd);
       xSemaphoreGive(xMutexData);
+    }
+
+    static int pCounter = 0;
+    if (++pCounter >= 10) {
+      Serial.printf("Distance: %.2f cm | Pitch: %.2f, Roll: %.2f, Yaw: %.2f\n", 
+                    dist, pitch, roll, yaw);
+      pCounter = 0;
     }
     vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
   }
