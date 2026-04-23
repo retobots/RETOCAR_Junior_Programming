@@ -10,6 +10,9 @@
 TaskHandle_t hControlTask, hCommSlaveTask, hRadioTask, hSystemTask;
 SemaphoreHandle_t xMutexData;
 
+RobotState g_robotState;  // Biến toàn cục lưu trạng thái xe
+RobotCommand g_robotCmd;  // Biến toàn cục lưu lệnh điều khiển
+
 // --- Task Prototypes ---
 void Task_Control(void *pv);    // Core 1 - 10ms: PID & Hardware Output
 void Task_Comm_Slave(void *pv); // Core 0 - 10ms: UART DMA from STM32
@@ -21,10 +24,16 @@ void setup()
   Serial.begin(115200);
   xMutexData = xSemaphoreCreateMutex();
 
+  // In ra địa chỉ MAC để Joystick biết gửi lệnh tới đâu
+
+  // WiFi.mode(WIFI_STA);
+  // Serial.print("MAC Address Master: ");
+  // Serial.println(WiFi.macAddress());
+
   // Khởi tạo Drivers & Middleware
   // motorDriver.begin();
   // slaveComm.begin();
-  // radioService.begin();
+  radioService.begin();
   // navigator.init();
 
   // --- PHÂN BỔ 4 TASKS THEO THIẾT KẾ ---
@@ -41,7 +50,7 @@ void setup()
   // 4. Task Hệ thống (Nhân 0 - Quản lý logic chậm & Failsafe)
   xTaskCreatePinnedToCore(Task_System, "System", 4096, NULL, 2, &hSystemTask, 0);
 }
-
+    
 void loop() { vTaskDelete(NULL); }
 
 // =================================================================
@@ -64,6 +73,7 @@ void Task_Control(void *pv)
     }
     vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
   }
+
 }
 
 // TASK 2: Giải mã UART từ STM32 (10ms)
@@ -90,18 +100,20 @@ void Task_Radio(void *pv)
 {
   while (1)
   {
-    // if (radioService.receive())
-    // {
-    //   if (xSemaphoreTake(xMutexData, pdMS_TO_TICKS(5)))
-    //   {
-    //     g_robotCmd = radioService.getCmd();
-    //     xSemaphoreGive(xMutexData);
-    //   }
-    // }
-    // // Gửi Telemetry về Joystick
-    // radioService.send(g_robotState);
+    if (radioService.receive())
+    {
+      if (xSemaphoreTake(xMutexData, pdMS_TO_TICKS(5)))
+      {
+        g_robotCmd = radioService.getCmd();
+        // Serial.printf("Da nhan: Vx=%d | Vy=%d | Omega=%d | Mode=%d | Buzzer=%d\n", 
+        //                       g_robotCmd.vx, g_robotCmd.vy, g_robotCmd.omega, g_robotCmd.mode, g_robotCmd.buzzer);
+        xSemaphoreGive(xMutexData);
+      }
+    }
+    // Gửi Telemetry về Joystick
+    radioService.send(g_robotState);
     vTaskDelay(pdMS_TO_TICKS(30));
-  }
+  } 
 }
 
 // TASK 4: Giám sát an toàn & State Machine (100ms)
@@ -109,7 +121,7 @@ void Task_System(void *pv)
 {
   while (1)
   {
-    // // Kiểm tra Pin, kiểm tra mất kết nối (Watchdog)
+    // // Kiểm tra Pin, kiểm tra mất kết nối (Wat chdog)
     // systemManager.checkFailsafe();
     // // Chuyển đổi trạng thái Manual/Auto
     // systemManager.updateMode();
