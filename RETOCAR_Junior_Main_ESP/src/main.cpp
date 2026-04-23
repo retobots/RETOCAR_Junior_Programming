@@ -10,6 +10,9 @@
 TaskHandle_t hControlTask, hCommSlaveTask, hRadioTask, hSystemTask;
 SemaphoreHandle_t xMutexData;
 
+RobotState g_robotState;
+RobotCommand g_robotCmd;
+
 // --- Task Prototypes ---
 void Task_Control(void *pv);    // Core 1 - 10ms: PID & Hardware Output
 void Task_Comm_Slave(void *pv); // Core 0 - 10ms: UART DMA from STM32
@@ -25,7 +28,7 @@ void setup()
   // motorDriver.begin();
   // slaveComm.begin();
   // radioService.begin();
-  // navigator.init();
+  navigator.init();
 
   // --- PHÂN BỔ 4 TASKS THEO THIẾT KẾ ---
 
@@ -49,23 +52,25 @@ void loop() { vTaskDelete(NULL); }
 // =================================================================
 
 // TASK 1: Xử lý toán học & Xuất xung (10ms)
-void Task_Control(void *pv)
-{
-  TickType_t xLastWakeTime = xTaskGetTickCount();
-  while (1)
-  {
-    if (xSemaphoreTake(xMutexData, portMAX_DELAY))
-    {
-      // Lấy Feedback đã được Task_Comm_Slave cập nhật sẵn
-      // navigator.update(g_robotState);
-      // // Tính toán PID & Xuất PWM
-      // navigator.execute(g_robotCmd);
-      xSemaphoreGive(xMutexData);
-    }
-    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
-  }
-}
+// TASK 1: Xử lý toán học & Xuất xung (10ms)
+void Task_Control(void *pv) {
+    // THÊM DÒNG NÀY VÀO ĐÂY ĐỂ KHỞI TẠO MỐC THỜI GIAN
+    TickType_t xLastWakeTime = xTaskGetTickCount(); 
+    
+    while (1) {
+        if (xSemaphoreTake(xMutexData, pdMS_TO_TICKS(5))) {
 
+            navigator.update(g_robotState);
+
+            navigator.execute(g_robotCmd);
+            
+            xSemaphoreGive(xMutexData);
+        }
+        
+        // Bây giờ biến xLastWakeTime ở dưới này đã có nguồn cội rồi!
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
+    }
+}
 // TASK 2: Giải mã UART từ STM32 (10ms)
 void Task_Comm_Slave(void *pv)
 {
